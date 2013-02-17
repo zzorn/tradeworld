@@ -13,7 +13,7 @@ public class Client implements ApplicationListener {
 	
 	@Override
 	public void create () {
-		texture = new Texture(Gdx.files.internal("images/placeholder2.png"));
+		texture = new Texture(Gdx.files.internal("images/icon.png"));
 		batch = new SpriteBatch();
 
         System.out.println(StringUtils.testString());
@@ -28,7 +28,7 @@ public class Client implements ApplicationListener {
 		Gdx.gl.glClearColor(0, 0, 0, 0);
 		Gdx.gl.glClear(GL10.GL_COLOR_BUFFER_BIT);
 		batch.begin();
-		batch.draw(texture, 100, 100);
+		batch.draw(texture, 100, 50);
 		batch.end();
 	}
 
