@@ -3,6 +3,16 @@
 
 
 # Package Files #
-*.jar
 *.war
 *.ear
+
+
+# Project files
+*.iml
+.idea/
+
+# Build files
+common/target/
+client/target/
+server/target/
+

@@ -15,6 +15,17 @@
 
     <packaging>jar</packaging>
 
+    <dependencies>
+        <dependency>
+            <groupId>com.esotericsoftware</groupId>
+            <artifactId>kryonet-all</artifactId>
+            <version>2.18</version>
+            <scope>system</scope>
+            <classifier>debug</classifier>
+            <systemPath>${project.basedir}/../lib/kryonet-all-2.18-debug.jar</systemPath>
+        </dependency>
+    </dependencies>
+
     <build>
         <plugins>
             <plugin>

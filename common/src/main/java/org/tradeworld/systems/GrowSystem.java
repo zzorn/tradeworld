@@ -5,7 +5,6 @@ import org.tradeworld.components.Edible;
 import org.tradeworld.components.Named;
 import org.tradeworld.entity.BaseEntitySystem;
 import org.tradeworld.entity.Entity;
-import org.tradeworld.entity.IdRegistry;
 import org.tradeworld.utils.TimeData;
 
 /**
