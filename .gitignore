@@ -8,11 +8,13 @@
 
 
 # Project files
-*.iml
+**.iml
 .idea/
 
 # Build files
 common/target/
 client/target/
 server/target/
+android/target/
+desktop/target/
 

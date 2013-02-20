@@ -19,6 +19,12 @@ public interface EntitySystem {
     void init(World world);
 
     /**
+     * Called when the system is shut down, e.g. because the application is closing.
+     * Can free any resources, flush disks, etc.
+     */
+    void shutdown();
+
+    /**
      * Processes all entities registered with this system.
      * Should only be called by World.
      */

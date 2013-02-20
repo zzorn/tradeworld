@@ -5,20 +5,18 @@ import org.tradeworld.utils.TimeData;
 import java.util.*;
 
 /**
- * Base implementation of an EntitySystem, provides functionality that is common for most EntitySystems.
+ * Base implementation of an EntitySystem, provides functionality that is common for most EntitySystems that handle entities.
  */
 // TODO: Support concurrent processing of entities if a flag to that effect is passed in the constructor.
 // Use a thread pool to process a part of the handled entities in each thread (concurrent reading of the handledEntities list is ok, as it is not modified during processing).
 // If concurrent processing is on, the processing of one entity by a system should never modify another handled by the same system.
-public abstract class BaseEntitySystem implements EntitySystem {
+public abstract class BaseEntitySystem extends BaseSystem {
 
-    private final int systemId;
     private final long handledComponentTypeIds;
 
     // Updated by onEntityAdded, onEntityRemoved and onEntityChanged,
     // these are called by World during the common process phase, and do not need to be thread safe.
-    private List<Entity> handledEntities = new ArrayList<Entity>();
-    private World world;
+    private final List<Entity> handledEntities = new ArrayList<Entity>();
 
 
     /**
@@ -26,25 +24,8 @@ public abstract class BaseEntitySystem implements EntitySystem {
      * Only entities with all the specified component types are processed by default.
      */
     public BaseEntitySystem(Class<? extends Component> ... handledComponentTypes) {
-        systemId = IdRegistry.getEntitySystemTypeId(getClass());
+        super();
         handledComponentTypeIds = IdRegistry.getComponentTypeIds(handledComponentTypes);
-    }
-
-    @Override
-    public int getSystemId() {
-        return systemId;
-    }
-
-    @Override
-    public void init(World world) {
-        this.world = world;
-    }
-
-    /**
-     * @return the world that this system is added to, or null if it has not yet been initialized.
-     */
-    public World getWorld() {
-        return world;
     }
 
     @Override
