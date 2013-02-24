@@ -4,7 +4,8 @@ import com.esotericsoftware.kryonet.Connection;
 import com.esotericsoftware.kryonet.Listener;
 import com.esotericsoftware.kryonet.Server;
 import org.tradeworld.StartupError;
-import org.tradeworld.entity.BaseSystem;
+import org.tradeworld.entity.BaseEntitySystem;
+import org.tradeworld.entity.Entity;
 import org.tradeworld.server.systems.account.Authenticator;
 import org.tradeworld.systems.networking.CommonNetworkingUtils;
 import org.tradeworld.systems.networking.messages.CreateAccountMessage;
@@ -18,9 +19,13 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  *
  */
-public class ServerNetworking extends BaseSystem {
+public class ServerNetworking extends BaseEntitySystem {
+
+    private static final int MAX_MESSAGES_TO_HANDLE_IN_ONE_PASS = 100;
+    private static final int MAX_MESSAGES_TO_SEND_IN_ONE_PASS = 100;
 
     private ConcurrentHashMap<String, PlayerConnection> playerConnections = new ConcurrentHashMap<String, PlayerConnection>(100);
+
     private Server server;
     private final Authenticator authenticator;
     private final int port;
@@ -73,6 +78,7 @@ public class ServerNetworking extends BaseSystem {
      * @param port TCP port to listen to on the server.
      */
     public ServerNetworking(Authenticator authenticator, int port) {
+        super(UserControlled.class);
         this.authenticator = authenticator;
         this.port = port;
     }
@@ -118,8 +124,54 @@ public class ServerNetworking extends BaseSystem {
     }
 
     @Override
-    public void process(TimeData timeData) {
-        // TODO: Go through any network connected entities, process their incoming messages and send their queued messages
+    protected void processEntity(TimeData timeData, Entity entity) {
+        final UserControlled controlled = entity.getComponent(UserControlled.class);
+
+        // Process incoming commands from the client
+        processIncomingMessages(controlled);
+
+        // Process outgoing messages to the client
+        processOutgoingMessages(controlled);
+    }
+
+    private void processIncomingMessages(UserControlled controlled) {
+        // Get first message
+        int numReceived = 0;
+        Message message = controlled.incomingMessageQueue.poll();
+        while (message != null && numReceived < MAX_MESSAGES_TO_HANDLE_IN_ONE_PASS) {
+            // Handle it
+            handleMessageFromClient(message);
+
+            // Get next message
+            numReceived++;
+            message = controlled.incomingMessageQueue.poll();
+        }
+    }
+
+    private void processOutgoingMessages(UserControlled controlled) {
+        final PlayerConnection playerConnection = controlled.playerConnection;
+
+        if (playerConnection == null || !playerConnection.isConnected() || !playerConnection.isLoggedIn()) {
+            // No connection or not logged, discard outgoing messages
+            controlled.outgoingMessageQueue.clear();
+        }
+        else {
+            // Get first message
+            int numSent = 0;
+            Message message = controlled.outgoingMessageQueue.poll();
+            while (message != null && numSent < MAX_MESSAGES_TO_SEND_IN_ONE_PASS) {
+                // Send it
+                playerConnection.sendMessage(message);
+
+                // Get next message
+                numSent++;
+                message = controlled.incomingMessageQueue.poll();
+            }
+        }
+    }
+
+    private void handleMessageFromClient(Message message) {
+        // TODO: What to do with them?  Convert to actions and setting changes?
     }
 
     private void login(PlayerConnection playerConnection, LoginMessage loginMessage ) {
@@ -192,6 +244,8 @@ public class ServerNetworking extends BaseSystem {
     }
 
     private void handleMessage(PlayerConnection playerConnection, Message message) {
+        // TODO: Link playerConnection and UserControlled
+
         // TODO: Find player control component, queue the message to it, drop the message if the queue is full?
     }
 }

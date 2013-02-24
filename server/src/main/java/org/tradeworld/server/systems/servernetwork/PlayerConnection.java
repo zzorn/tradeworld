@@ -2,6 +2,7 @@ package org.tradeworld.server.systems.servernetwork;
 
 import com.esotericsoftware.kryonet.Connection;
 import org.tradeworld.systems.networking.messages.ErrorMessage;
+import org.tradeworld.systems.networking.messages.Message;
 
 /**
  * Custom session object for storing session specific data.
@@ -58,6 +59,13 @@ public final class PlayerConnection extends Connection {
      */
     public final void sendError(String errorType, String errorDescription) {
         sendTCP(new ErrorMessage(errorType, errorDescription));
+    }
+
+    /**
+     * Sends a message to the client.
+     */
+    public final void sendMessage(Message message) {
+        sendTCP(message);
     }
 
 }
