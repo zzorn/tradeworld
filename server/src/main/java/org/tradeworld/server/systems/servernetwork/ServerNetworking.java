@@ -4,9 +4,12 @@ import com.esotericsoftware.kryonet.Connection;
 import com.esotericsoftware.kryonet.Listener;
 import com.esotericsoftware.kryonet.Server;
 import org.tradeworld.StartupError;
+import org.tradeworld.components.Controllable;
 import org.tradeworld.entity.BaseEntitySystem;
 import org.tradeworld.entity.Entity;
-import org.tradeworld.server.systems.account.Authenticator;
+import org.tradeworld.server.systems.account.Account;
+import org.tradeworld.server.systems.account.AccountCreationException;
+import org.tradeworld.server.systems.account.AccountSystem;
 import org.tradeworld.systems.networking.CommonNetworkingUtils;
 import org.tradeworld.systems.networking.messages.CreateAccountMessage;
 import org.tradeworld.systems.networking.messages.LoginMessage;
@@ -26,9 +29,9 @@ public class ServerNetworking extends BaseEntitySystem {
 
     private ConcurrentHashMap<String, PlayerConnection> playerConnections = new ConcurrentHashMap<String, PlayerConnection>(100);
 
-    private Server server;
-    private final Authenticator authenticator;
     private final int port;
+    private final AccountSystem accountSystem;
+    private Server server;
 
     private final Listener listener = new Listener() {
         @Override
@@ -66,7 +69,7 @@ public class ServerNetworking extends BaseEntitySystem {
             PlayerConnection playerConnection = (PlayerConnection) connection;
 
             if (playerConnection.isLoggedIn()) {
-                logout(playerConnection.getUserName());
+                logout(playerConnection.getUserName(), playerConnection.getPlayerEntityId());
             }
 
         }
@@ -74,13 +77,13 @@ public class ServerNetworking extends BaseEntitySystem {
 
     /**
      * Creates but does not start server side networking.
-     * @param authenticator used to keep track of accounts, and check passwords for accounts.
      * @param port TCP port to listen to on the server.
+     * @param accountSystem used to keep track of accounts, and check passwords for accounts.
      */
-    public ServerNetworking(Authenticator authenticator, int port) {
-        super(UserControlled.class);
-        this.authenticator = authenticator;
+    public ServerNetworking(int port, AccountSystem accountSystem) {
+        super(null, UserControlled.class);
         this.port = port;
+        this.accountSystem = accountSystem;
     }
 
     @Override
@@ -175,24 +178,27 @@ public class ServerNetworking extends BaseEntitySystem {
     }
 
     private void login(PlayerConnection playerConnection, LoginMessage loginMessage ) {
-        String userName = loginMessage.getUserName();
+        String accountName = loginMessage.getUserName();
 
         if (playerConnection.isLoggedIn()) {
             // Error if this connection is already logged in
             playerConnection.closeWithError("AlreadyLoggedIn");
         }
-        else if (isLoggedIn(userName)) {
+        else if (isLoggedIn(accountName)) {
             // Reject if there is a connection to this account from another computer
             playerConnection.closeWithError("LoggedInOnOtherConnection");
         }
-        else if (!authenticator.checkPassword(userName, loginMessage.getP())) {
-            // Reject if the password is invalid
-            // TODO: Do not accept another login attempt for a few seconds from this ip, or allow 5 attempts then require waiting 10 seconds or so
-            playerConnection.closeWithError("InvalidUsernameOrPassword");
-        }
         else {
-            // Login was successful
-            setLoggedIn(userName, playerConnection);
+            Account account = accountSystem.checkPassword(accountName, loginMessage.getP());
+            if (account == null) {
+                // Reject if the password is invalid
+                // TODO: Do not accept another login attempt for a few seconds from this ip, or allow 5 attempts then require waiting 10 seconds or so
+                playerConnection.closeWithError("InvalidUsernameOrPassword");
+            }
+            else {
+                // Login was successful
+                setLoggedIn(accountName, playerConnection, account.getPlayerEntityId());
+            }
         }
 
         // We don't need the password anymore
@@ -200,27 +206,32 @@ public class ServerNetworking extends BaseEntitySystem {
     }
 
     private void createAccount(PlayerConnection playerConnection, CreateAccountMessage createAccountMessage) {
-        String userName = createAccountMessage.getUserName();
+        String accountName = createAccountMessage.getUserName();
 
         if (playerConnection.isLoggedIn()) {
             // Can't create an account if we are already logged in
             playerConnection.closeWithError("AlreadyLoggedIn");
         }
-        else if (isLoggedIn(userName)) {
+        else if (isLoggedIn(accountName)) {
             // Reject if there is a connection to this account from another computer
             playerConnection.closeWithError("LoggedInOnOtherConnection");
         }
         else {
             // Try to create account
-            String error = authenticator.createAccount(userName, createAccountMessage.getP());
+            Account account;
+            try {
+                account = accountSystem.createAccount(accountName, createAccountMessage.getP());
 
-            if (error != null) {
-                // Failed due to unavailable name or too weak password
-                playerConnection.sendError(error);
-            }
-            else {
-                // Account creation successful
-                setLoggedIn(userName, playerConnection);
+                if (account != null) {
+                    // Account creation successful
+                    setLoggedIn(accountName, playerConnection, account.getPlayerEntityId());
+                } else {
+                    // Should not happen..
+                    playerConnection.closeWithError("UnexpectedErrorWhenCreatingAccount");
+                }
+            } catch (AccountCreationException e) {
+                // Failed due to unavailable name or too weak password or similar
+                playerConnection.sendMessage(e.getAsMessage());
             }
         }
 
@@ -228,24 +239,32 @@ public class ServerNetworking extends BaseEntitySystem {
         createAccountMessage.scrubPassword();
     }
 
-    private void setLoggedIn(String userName, PlayerConnection playerConnection) {
-        playerConnection.setLoggedIn(userName);
+    private void setLoggedIn(String userName, PlayerConnection playerConnection, long playerEntityId) {
+        playerConnection.setLoggedIn(userName, playerEntityId);
         playerConnections.put(userName, playerConnection);
 
         // Notify the player object
+        Entity entity = getWorld().getEntity(playerEntityId);
+        UserControlled userControlled = entity.getComponent(UserControlled.class);
         // TODO
     }
 
-    private void logout(String userName) {
+    private void logout(String userName, long playerEntityId) {
         playerConnections.remove(userName);
 
         // Notify the player object
+        Entity entity = getWorld().getEntity(playerEntityId);
+        UserControlled userControlled = entity.getComponent(UserControlled.class);
         // TODO
     }
 
     private void handleMessage(PlayerConnection playerConnection, Message message) {
-        // TODO: Link playerConnection and UserControlled
 
-        // TODO: Find player control component, queue the message to it, drop the message if the queue is full?
+        // TODO: Cache player entity reference in playerConnection, possibly also component references
+        Entity entity = getWorld().getEntity(playerConnection.getPlayerEntityId());
+
+        // Find player control component, queue the message to it
+        Controllable controllable = entity.getComponent(Controllable.class);
+        controllable.queueControlMessage(message);
     }
 }

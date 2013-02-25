@@ -19,12 +19,16 @@ public abstract class BaseEntitySystem extends BaseSystem {
     private final List<Entity> handledEntities = new ArrayList<Entity>();
 
 
+    protected BaseEntitySystem() {
+        this(null);
+    }
+
     /**
      * Creates a new BaseEntitySystem, that is interested in entities with the specified types of components.
      * Only entities with all the specified component types are processed by default.
      */
-    public BaseEntitySystem(Class<? extends Component> ... handledComponentTypes) {
-        super();
+    public BaseEntitySystem(Class<? extends EntitySystem> baseType, Class<? extends Component> ... handledComponentTypes) {
+        super(baseType);
         handledComponentTypeIds = IdRegistry.getComponentTypeIds(handledComponentTypes);
     }
 

@@ -10,12 +10,35 @@ public interface World {
     /**
      * Adds an entity system.  Should be done before calling initialize.
      */
-    void addSystem(EntitySystem entitySystem);
+    <T extends EntitySystem> T addSystem(T entitySystem);
+
+    /**
+     * @return the system of the specified type.  Throws an exception if not found.
+     */
+    <T extends EntitySystem> T getSystem(Class<T> systemType);
 
     /**
      * Initializes all systems.
      */
     void init();
+
+    /**
+     * Starts a world simulation loop that will repeatedly call process.
+     * If init has not been called, this will call init first.
+     */
+    void start();
+
+    /**
+     * Starts a world simulation loop that will repeatedly call process.
+     * If init has not been called, this will call init first.
+     */
+    void start(long simulationStepMilliseconds);
+
+    /**
+     * Will stop the main game loop, and shut down all systems, after the next game loop is completed,
+     * or do the shutdown immediately if the game loop was not started.
+     */
+    void shutdown();
 
     /**
      * Add and remove any recently added/removed entities, then call process for each EntitySystem, in the order they were added,
@@ -25,17 +48,23 @@ public interface World {
     void process(TimeData timeData);
 
     /**
+     * Creates a new entity and adds it to the world.
+     * @param components initial components to add to the entity.
+     * @return the created entity.
+     */
+    Entity createEntity(Component ... components);
+
+    /**
      * Removes an entity from the world.
      * @param entity entity to remove if found.
      */
     void removeEntity(Entity entity);
 
     /**
-     * Adds an entity to the world.  This is normally called from the Entity constructor, so no need to call it directly.
-     * @param entity entity to add.
-     * @return the id for the entity.
+     * @param entityId the id of the entity to get.
+     * @return the entity with the specified id, or null if none found.
      */
-    long addEntity(Entity entity);
+    Entity getEntity(long entityId);
 
     /**
      * Notify the world when components are added or removed to an entity.  This is called automatically by an entity, no need to call manually.

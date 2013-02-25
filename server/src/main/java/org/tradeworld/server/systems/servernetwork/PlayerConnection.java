@@ -8,7 +8,10 @@ import org.tradeworld.systems.networking.messages.Message;
  * Custom session object for storing session specific data.
  */
 public final class PlayerConnection extends Connection {
+
     private String userName;
+    private long playerEntityId;
+
 
     public String getUserName() {
         return userName;
@@ -18,8 +21,13 @@ public final class PlayerConnection extends Connection {
         return userName != null;
     }
 
-    public void setLoggedIn(String userName) {
+    public long getPlayerEntityId() {
+        return playerEntityId;
+    }
+
+    public void setLoggedIn(String userName, long playerEntityId) {
         this.userName = userName;
+        this.playerEntityId = playerEntityId;
     }
 
     /**

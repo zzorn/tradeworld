@@ -7,12 +7,25 @@ import org.tradeworld.utils.TimeData;
  */
 public abstract class BaseSystem implements EntitySystem {
 
+    protected final Class<? extends EntitySystem> baseType;
     protected final int systemId;
 
     private World world = null;
 
     protected BaseSystem() {
+        this(null);
+    }
+
+    protected BaseSystem(Class<? extends EntitySystem> baseType) {
+        if (baseType == null) this.baseType = getClass();
+        else this.baseType = baseType;
+
         systemId = IdRegistry.getEntitySystemTypeId(getClass());
+    }
+
+    @Override
+    public Class<? extends EntitySystem> getBaseType() {
+        return baseType;
     }
 
     @Override

@@ -17,6 +17,22 @@ public final class ParameterChecker
     // Static Methods
 
     /**
+     * Checks that the specified parameter fulfills a condition.
+     *
+     * @param condition true if condition acceptable, false if an error should be thrown.
+     * @param parameterName the name of the parameter (used in error messages)
+     * @param conditionDescription description of the error condition.
+     *
+     * @throws IllegalArgumentException if the check fails.
+     */
+    public static void check(boolean condition, String parameterName, String conditionDescription) {
+        if (!condition) {
+            throw new IllegalArgumentException("The parameter '" + parameterName + "' should " + conditionDescription + "'." );
+        }
+    }
+
+
+    /**
      * Checks that the specified parameter is not infinite and not NaN (not a number).
      *
      * @param parameter     the parameter value to check

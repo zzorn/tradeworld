@@ -13,25 +13,21 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public final class Entity {
 
+    private long entityId;
+    private World world;
     private final ConcurrentMap<Class<? extends Component>, Component> components = new ConcurrentHashMap<Class<? extends Component>, Component>();
     private AtomicLong handledBySystems = new AtomicLong(0);
     private AtomicLong containedComponentTypes = new AtomicLong(0);
     private final Object changeLock = new Object();
-    private final World world;
-    private long entityId;
-
-    // TODO: Could we also / instead support the world.add method of adding entities?  Although this way we never forget to add.
 
     /**
-     * Creates a new entity, adds it to the specified world, and adds the specified components to it.
+     * Creates a new entity and adds the specified components to it.
      * @param world world that this entity exists in.
      * @param components initial components to add.
      */
-    public Entity(World world, Component ... components) {
+    protected Entity(long entityId, World world, Component ... components) {
+        this.entityId = entityId;
         this.world = world;
-
-        // Add to world
-        entityId = world.addEntity(this);
 
         // Add components
         for (Component component : components) {
@@ -180,5 +176,6 @@ public final class Entity {
         handledBySystems.set(0);
         containedComponentTypes.set(0);
         entityId = 0;
+        world = null;
     }
 }

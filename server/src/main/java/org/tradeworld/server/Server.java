@@ -1,65 +1,47 @@
 package org.tradeworld.server;
 
+import org.tradeworld.components.Controllable;
 import org.tradeworld.components.Crop;
 import org.tradeworld.components.Named;
-import org.tradeworld.entity.BaseEntitySystem;
-import org.tradeworld.entity.DefaultWorld;
-import org.tradeworld.entity.Entity;
-import org.tradeworld.entity.World;
+import org.tradeworld.entity.*;
+import org.tradeworld.server.systems.account.AccountSystem;
+import org.tradeworld.server.systems.account.PlayerEntityFactory;
+import org.tradeworld.server.systems.servernetwork.ServerNetworking;
 import org.tradeworld.systems.GrowSystem;
-import org.tradeworld.utils.StringUtils;
-import org.tradeworld.utils.TimeData;
 
 /**
  *
  */
-public class Server {
+public class Server extends DefaultWorld {
 
-    private World world;
+    public static final int PORT = 9775;
+
+    private final PlayerEntityFactory playerEntityFactory = new PlayerEntityFactory() {
+        @Override
+        public Entity createPlayerEntity(World world, String accountName) {
+            return world.createEntity(new Named("Player"), new Controllable());
+        }
+    };
 
     public static void main(String[] args) {
-        System.out.println("Server starting up.");
-        System.out.println(StringUtils.testString());
-
         Server server = new Server();
+        server.setSimulationStepMilliseconds(100);
         server.start();
     }
 
-    private Server() {
-        world = createWorld();
+    @Override
+    protected void registerSystems() {
+        AccountSystem accountSystem = addSystem(new AccountSystem(playerEntityFactory));
+        addSystem(new ServerNetworking(PORT, accountSystem));
+        addSystem(new GrowSystem());
     }
 
-    private World createWorld() {
-        final World world = new DefaultWorld();
-
-        world.addSystem(new GrowSystem());
-
-        new Entity(world, new Named("POTATO"), new Crop(40));
-        new Entity(world, new Named("PoTatO!"), new Crop(34));
-        new Entity(world, new Named("POTATOE!!"), new Crop(10));
-        new Entity(world, new Named("Pottatto"), new Crop(200));
-
-        return world;
+    @Override
+    protected void initWorld() {
+        createEntity(new Named("POTATO"), new Crop(40));
+        createEntity(new Named("PoTatO!"), new Crop(34));
+        createEntity(new Named("POTATOE!!"), new Crop(10));
+        createEntity(new Named("Pottatto"), new Crop(200));
     }
-
-    private void start() {
-        // TODO: Include basic game looping structures in world, add possibility to override, rename to Game / App?
-        // TODO: Or have the looping structures in Game, and the entity management in World.
-
-        TimeData timeData = new TimeData();
-        boolean quit = false;
-        while(!quit) {
-            timeData.onFrame();
-
-            world.process(timeData);
-
-            try {
-                Thread.sleep(1000);
-            } catch (InterruptedException e) {
-                quit = true;
-            }
-        }
-    }
-
 
 }

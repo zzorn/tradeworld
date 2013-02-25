@@ -9,6 +9,13 @@ import org.tradeworld.utils.TimeData;
 public interface EntitySystem {
 
     /**
+     * The base type used when retrieving entity systems.
+     * Typically a system specific interface that a symstem implementation implements.
+     * There can only be one system with each base type registered in a World.
+     */
+    Class<? extends EntitySystem> getBaseType();
+
+    /**
      * Returns the id for this entity system.
      */
     int getSystemId();

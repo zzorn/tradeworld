@@ -13,7 +13,7 @@ import org.tradeworld.utils.TimeData;
 public class GrowSystem extends BaseEntitySystem {
 
     public GrowSystem() {
-        super(Crop.class, Named.class);
+        super(null, Crop.class, Named.class);
     }
 
     @Override

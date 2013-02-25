@@ -13,10 +13,11 @@ public class Client implements ApplicationListener {
 	
 	@Override
 	public void create () {
+        System.out.println("Client starting");
+
 		texture = new Texture(Gdx.files.internal("images/icon.png"));
 		batch = new SpriteBatch();
 
-        System.out.println(StringUtils.testString());
     }
 
 	@Override

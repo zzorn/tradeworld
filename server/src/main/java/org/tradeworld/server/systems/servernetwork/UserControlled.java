@@ -3,6 +3,7 @@ package org.tradeworld.server.systems.servernetwork;
 import org.tradeworld.entity.BaseComponent;
 import org.tradeworld.systems.networking.messages.Message;
 
+import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
