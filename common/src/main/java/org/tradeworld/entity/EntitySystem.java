@@ -1,6 +1,6 @@
 package org.tradeworld.entity;
 
-import org.tradeworld.utils.TimeData;
+import org.tradeworld.utils.Ticker;
 
 /**
  * A system that is specialized at simulating some aspect of the World.  Processes entities that contain some
@@ -35,7 +35,7 @@ public interface EntitySystem {
      * Processes all entities registered with this system.
      * Should only be called by World.
      */
-    void process(TimeData timeData);
+    void process();
 
     /**
      * Should only be called by World.

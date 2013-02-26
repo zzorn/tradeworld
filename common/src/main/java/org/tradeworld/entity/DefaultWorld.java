@@ -1,8 +1,7 @@
 package org.tradeworld.entity;
 
 import org.tradeworld.utils.ParameterChecker;
-import org.tradeworld.utils.StringUtils;
-import org.tradeworld.utils.TimeData;
+import org.tradeworld.utils.Ticker;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -36,7 +35,7 @@ public class DefaultWorld implements World {
     private long simulationStepMilliseconds;
 
     public DefaultWorld() {
-        this(20);
+        this(1);
     }
 
     public DefaultWorld(long simulationStepMilliseconds) {
@@ -111,12 +110,12 @@ public class DefaultWorld implements World {
         if (!initialized.get()) init();
 
         // Main simulation loop
-        TimeData timeData = new TimeData();
+        Ticker ticker = new Ticker();
         running.set(true);
         while(running.get()) {
-            timeData.onFrame();
+            ticker.tick();
 
-            process(timeData);
+            process(ticker);
 
             try {
                 Thread.sleep(simulationStepMilliseconds);
@@ -160,12 +159,12 @@ public class DefaultWorld implements World {
 
 
     @Override
-    public void process(TimeData timeData) {
+    public void process(Ticker ticker) {
         refreshEntities();
 
         // Process entities with systems
         for (EntitySystem entitySystem : entitySystems) {
-            entitySystem.process(timeData);
+            entitySystem.process();
         }
 
     }

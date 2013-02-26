@@ -14,7 +14,7 @@ import org.tradeworld.systems.networking.CommonNetworkingUtils;
 import org.tradeworld.systems.networking.messages.CreateAccountMessage;
 import org.tradeworld.systems.networking.messages.LoginMessage;
 import org.tradeworld.systems.networking.messages.Message;
-import org.tradeworld.utils.TimeData;
+import org.tradeworld.utils.Ticker;
 
 import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -127,7 +127,7 @@ public class ServerNetworking extends BaseEntitySystem {
     }
 
     @Override
-    protected void processEntity(TimeData timeData, Entity entity) {
+    protected void processEntity(Ticker ticker, Entity entity) {
         final UserControlled controlled = entity.getComponent(UserControlled.class);
 
         // Process incoming commands from the client
@@ -259,9 +259,14 @@ public class ServerNetworking extends BaseEntitySystem {
     }
 
     private void handleMessage(PlayerConnection playerConnection, Message message) {
+        Entity entity = playerConnection.getPlayerEntity(getWorld());
 
-        // TODO: Cache player entity reference in playerConnection, possibly also component references
-        Entity entity = getWorld().getEntity(playerConnection.getPlayerEntityId());
+        // Pass to action handling system if action
+        // TODO
+
+        // Pass to settings change system if such a thing
+        // TODO
+
 
         // Find player control component, queue the message to it
         Controllable controllable = entity.getComponent(Controllable.class);

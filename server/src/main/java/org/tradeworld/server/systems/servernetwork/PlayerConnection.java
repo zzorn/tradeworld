@@ -1,6 +1,8 @@
 package org.tradeworld.server.systems.servernetwork;
 
 import com.esotericsoftware.kryonet.Connection;
+import org.tradeworld.entity.Entity;
+import org.tradeworld.entity.World;
 import org.tradeworld.systems.networking.messages.ErrorMessage;
 import org.tradeworld.systems.networking.messages.Message;
 
@@ -11,6 +13,7 @@ public final class PlayerConnection extends Connection {
 
     private String userName;
     private long playerEntityId;
+    private transient Entity playerEntity;
 
 
     public String getUserName() {
@@ -28,6 +31,15 @@ public final class PlayerConnection extends Connection {
     public void setLoggedIn(String userName, long playerEntityId) {
         this.userName = userName;
         this.playerEntityId = playerEntityId;
+        playerEntity = null;
+    }
+
+    public Entity getPlayerEntity(World world) {
+        if (playerEntity == null) {
+            playerEntity = world.getEntity(playerEntityId);
+        }
+
+        return playerEntity;
     }
 
     /**

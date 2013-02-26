@@ -1,6 +1,6 @@
 package org.tradeworld.entity;
 
-import org.tradeworld.utils.TimeData;
+import org.tradeworld.utils.Ticker;
 
 import java.util.*;
 
@@ -19,6 +19,9 @@ public abstract class BaseEntitySystem extends BaseSystem {
     private final List<Entity> handledEntities = new ArrayList<Entity>();
 
 
+    /**
+     * Creates a new BaseEntitySystem.
+     */
     protected BaseEntitySystem() {
         this(null);
     }
@@ -26,9 +29,24 @@ public abstract class BaseEntitySystem extends BaseSystem {
     /**
      * Creates a new BaseEntitySystem, that is interested in entities with the specified types of components.
      * Only entities with all the specified component types are processed by default.
+     *
+     * @param baseType the base type for this entity system, or the default one if null.
+     * @param handledComponentTypes entities with the component types listed here will be handled by this system.
      */
-    public BaseEntitySystem(Class<? extends EntitySystem> baseType, Class<? extends Component> ... handledComponentTypes) {
-        super(baseType);
+    protected BaseEntitySystem(Class<? extends EntitySystem> baseType, Class<? extends Component> ... handledComponentTypes) {
+        this(baseType, 0, handledComponentTypes);
+    }
+
+    /**
+     * Creates a new BaseEntitySystem, that is interested in entities with the specified types of components.
+     * Only entities with all the specified component types are processed by default.
+     *
+     * @param baseType the base type for this entity system, or the default one if null.
+     * @param processingIntervalSeconds number of seconds between each process pass of this system, or zero to process as often as process() is called.
+     * @param handledComponentTypes entities with the component types listed here will be handled by this system.
+     */
+    protected BaseEntitySystem(Class<? extends EntitySystem> baseType, double processingIntervalSeconds, Class<? extends Component> ... handledComponentTypes) {
+        super(baseType, processingIntervalSeconds);
         handledComponentTypeIds = IdRegistry.getComponentTypeIds(handledComponentTypes);
     }
 
@@ -56,35 +74,34 @@ public abstract class BaseEntitySystem extends BaseSystem {
 
     }
 
-    @Override
-    public void process(TimeData timeData) {
-        preProcess(timeData);
+    protected void doProcess(Ticker systemTicker) {
+        preProcess(systemTicker);
 
         for (Entity handledEntity : handledEntities) {
-            processEntity(timeData, handledEntity);
+            processEntity(ticker, handledEntity);
         }
 
-        postProcess(timeData);
+        postProcess(systemTicker);
     }
 
     /**
      * Called before entity processing begins.
-     * @param timeData contains delta time and total simulation time.
+     * @param ticker contains delta time and total simulation time.
      */
-    protected void preProcess(TimeData timeData) {}
+    protected void preProcess(Ticker ticker) {}
 
     /**
      * Called after entity processing ends.
-     * @param timeData contains delta time and total simulation time.
+     * @param ticker contains delta time and total simulation time.
      */
-    protected void postProcess(TimeData timeData) {}
+    protected void postProcess(Ticker ticker) {}
 
     /**
      * Called to process a specific entity
-     * @param timeData contains delta time and total simulation time.
+     * @param ticker contains delta time and total simulation time.
      * @param entity entity to process.
      */
-    protected void processEntity(TimeData timeData, Entity entity) {}
+    protected void processEntity(Ticker ticker, Entity entity) {}
 
     /**
      * Called after an entity is added to this system.

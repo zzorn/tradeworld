@@ -3,7 +3,7 @@ package org.tradeworld.server.systems.account;
 import java.util.List;
 
 /**
- *
+ * Information about an account.
  */
 public class Account {
 

@@ -5,7 +5,7 @@ import org.tradeworld.components.Edible;
 import org.tradeworld.components.Named;
 import org.tradeworld.entity.BaseEntitySystem;
 import org.tradeworld.entity.Entity;
-import org.tradeworld.utils.TimeData;
+import org.tradeworld.utils.Ticker;
 
 /**
  *
@@ -17,7 +17,7 @@ public class GrowSystem extends BaseEntitySystem {
     }
 
     @Override
-    protected void processEntity(TimeData timeData, Entity entity) {
+    protected void processEntity(Ticker ticker, Entity entity) {
         Crop crop = entity.getComponent(Crop.class);
         String name = entity.getComponent(Named.class).name;
 

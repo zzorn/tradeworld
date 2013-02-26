@@ -1,6 +1,6 @@
 package org.tradeworld.entity;
 
-import org.tradeworld.utils.TimeData;
+import org.tradeworld.utils.Ticker;
 
 /**
  * Manages all entities and systems in a game/simulation.
@@ -43,9 +43,9 @@ public interface World {
     /**
      * Add and remove any recently added/removed entities, then call process for each EntitySystem, in the order they were added,
      * letting them process the entities they are interested in.
-     * @param timeData contains time since last frame and since the beginning of the simulation.
+     * @param ticker contains time since last frame and since the beginning of the simulation.
      */
-    void process(TimeData timeData);
+    void process(Ticker ticker);
 
     /**
      * Creates a new entity and adds it to the world.
