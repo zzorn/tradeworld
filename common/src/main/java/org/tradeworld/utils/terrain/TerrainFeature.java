@@ -3,24 +3,21 @@ package org.tradeworld.utils.terrain;
 import java.util.Collection;
 
 /**
- * Information about a terrain.
+ * Some feature or effect on some area of the terrain.
+ * Used to specify terrain formations and various operations on the terrain.
  */
-public interface Terrain {
+public interface TerrainFeature {
 
     /**
-     * @param terrainFeature a feature that should be added to the terrain, on top of existing features.
+     * @return the area that may be affected by this effect.  Nothing outside this area is affected.
+     *         null if the feature affects all terrain.
      */
-    void addFeature(TerrainFeature terrainFeature);
+    BoundingBox getAffectedArea();
 
     /**
-     * @param terrainFeature a feature that should be removed from the terrain.
+     * @return ids of data channels provided by this terrain.
      */
-    void removeFeature(TerrainFeature terrainFeature);
-
-    /**
-     * @return names of data channels provided by this terrain.
-     */
-    Collection<ChannelId> getChannelIds();
+    Collection<ChannelId> getAffectedChannels();
 
     /**
      * @return the value at the specified channel at the specified location, using the specified sample radius (the same radius may be rounded if necessary).
@@ -35,4 +32,5 @@ public interface Terrain {
      * @param targetRaster raster to write the values to.
      */
     void getValues(ChannelId channel, BoundingBox region, DoubleRaster targetRaster);
+
 }
