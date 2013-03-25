@@ -33,4 +33,12 @@ public interface TerrainFeature {
      */
     void getValues(ChannelId channel, BoundingBox region, DoubleRaster targetRaster);
 
+    /**
+     * Called regularly by the terrain update method to allow the feature to change, if it is dynamic.
+     * @param deltaSeconds number of (game time) seconds since the last call, or zero for first call.
+     * @param secondsSinceGameEpoch number of seconds since game world was started, in game time.
+     * @return true if the feature changed and listeners should be notified.
+     */
+    boolean update(double deltaSeconds, double secondsSinceGameEpoch);
+
 }
