@@ -11,7 +11,7 @@ public class TerrainImpl implements Terrain {
     private Set<ChannelId> availableChannels = new HashSet<ChannelId>();
     private Set<ChannelId> availableChannelsUnmodifiable  = Collections.unmodifiableSet(availableChannels);
 
-    // TODO: An optimization would be to use some kind of quad tree or RTree here.  Needs to allow access from multiple thread.
+    // TODO: An optimization would be to use some kind of quad tree or RTree here.  Needs to allow access from multiple threads.
     private LinkedHashSet<TerrainFeature> features = new LinkedHashSet<TerrainFeature>();
 
 
