@@ -1,7 +1,7 @@
 package org.tradeworld.utils.bbox;
 
 /**
- *
+ * Rectangular axis aligned bounding area.
  */
 public interface BoundingBox {
 
@@ -22,14 +22,16 @@ public interface BoundingBox {
     // TODO: Add union, intersects, union of many, etc.?
 
     /**
-     * This can be just a stub that ignores the listener if the bounding box implementation is immutable.
+     * Add a listener that is notified if the bounding box changes.
+     * If the bounding box implementation is immutable, this can be just a stub that ignores the listener.
      * @param listener a listener that will be called when the bounding box changes dimensions or location.
      * @param listenerData a data object that should be passed to the listener when called.
      */
     void addListener(BoundingBoxListener listener, Object listenerData);
 
     /**
-     * This can be just a stub that does nothing if the bounding box is immutable.
+     * Remove a listener.
+     * If the bounding box implementation is immutable, this can be just a stub that ignores the listener.
      * @param listener the listener to remove.
      */
     void removeListener(BoundingBoxListener listener);
