@@ -10,6 +10,10 @@ public final class MutableBoundingBox extends BoundingBoxBase {
 
     private Map<BoundingBoxListener, Object> listeners = null;
 
+    public MutableBoundingBox() {
+        this(0,0,0,0);
+    }
+
     public MutableBoundingBox(double x1, double y1, double x2, double y2) {
         set(x1, y1, x2, y2);
     }
