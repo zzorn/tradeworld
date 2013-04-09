@@ -60,20 +60,20 @@ public interface SpatialIndex<T> {
 
     /**
      * Retrieves all objects that are contained within the specified area.
-     * @param area The area to get objects within.  All objects that have no part outside the area are included.
+     * @param bounds The area to get objects within.  All objects that have no part outside the area are included.
      * @param resultOut the result collection to add the found objects to.
      *                  Results are only added, does not remove any existing elements from the collection.
      * @return number of objects found.
      */
-    int getContained(BoundingBox area, Collection<T> resultOut);
+    int getContained(BoundingBox bounds, Collection<T> resultOut);
 
     /**
      * Retrieves all objects that intersect the specified area.
-     * @param area The area to get objects overlapping.  All objects that are not completely outside the area are included.
+     * @param bounds The area to get objects overlapping.  All objects that are not completely outside the area are included.
      * @param resultOut the result collection to add the found objects to.
      *                  Results are only added, does not remove any existing elements from the collection.
      * @return number of objects found.
      */
-    int getIntersecting(BoundingBox area, Collection<T> resultOut);
+    int getIntersecting(BoundingBox bounds, Collection<T> resultOut);
 
 }

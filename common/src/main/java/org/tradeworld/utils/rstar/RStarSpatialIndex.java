@@ -16,7 +16,7 @@ public class RStarSpatialIndex<T> extends SpatialIndexBase<T> {
     private final int maxFill = 64;
     private final int minFill = (int) (maxFill * 0.4);
 
-    private Node<T> rootNode = new LeafNode<T>();
+    private Node<T> rootNode = new LeafNode<T>(parent);
 
     @Override
     protected void rawAdd(T object, BoundingBox boundingBox) {
@@ -30,8 +30,19 @@ public class RStarSpatialIndex<T> extends SpatialIndexBase<T> {
         nodeToAddObjectTo.addDataEntry(entry);
 
         // If the chosen subtree got filled to max capacity, split it
+        if (nodeToAddObjectTo.getSize() > maxFill) {
+            splitNode(nodeToAddObjectTo);
+        }
 
         // TODO
+    }
+
+    private void splitNode(LeafNode nodeToSplit) {
+        // Sort nodes by (lower and upper) x and y boundaries  (primary order by upper boundary, secondary by lower).
+
+        // Sum together margin values for all distributions
+
+
     }
 
     @Override
@@ -62,11 +73,11 @@ public class RStarSpatialIndex<T> extends SpatialIndexBase<T> {
     private int getContainedObjectsFromNode(Node<T> node, BoundingBox searchArea, Collection<T> resultOut) {
         int numResults = 0;
 
-        if (searchArea.intersects(node.getArea())) {
+        if (searchArea.intersects(node.getBounds())) {
             if (node.isLeaf()) {
                 // Include contained data objects in result
                 for (DataEntry<T> dataEntry : node.getDataEntries()) {
-                    if (searchArea.contains(dataEntry.area)) {
+                    if (searchArea.contains(dataEntry.bounds)) {
                         resultOut.add(dataEntry.dataObject);
                         numResults++;
                     }
@@ -86,11 +97,11 @@ public class RStarSpatialIndex<T> extends SpatialIndexBase<T> {
     private int getIntersectingObjectsFromNode(Node<T> node, BoundingBox searchArea, Collection<T> resultOut) {
         int numResults = 0;
 
-        if (searchArea.intersects(node.getArea())) {
+        if (searchArea.intersects(node.getBounds())) {
             if (node.isLeaf()) {
                 // Include intersecting data objects in result
                 for (DataEntry<T> dataEntry : node.getDataEntries()) {
-                    if (searchArea.intersects(dataEntry.area)) {
+                    if (searchArea.intersects(dataEntry.bounds)) {
                         resultOut.add(dataEntry.dataObject);
                         numResults++;
                     }
@@ -108,62 +119,73 @@ public class RStarSpatialIndex<T> extends SpatialIndexBase<T> {
     }
 
 
+    private double calculateCombinedArea(BoundingBox originalBox, BoundingBox boxToInclude) {
+        double x1 = Math.min(originalBox.getMinX(), boxToInclude.getMinX());
+        double x2 = Math.max(originalBox.getMaxX(), boxToInclude.getMaxX());
+        double y1 = Math.min(originalBox.getMinY(), boxToInclude.getMinY());
+        double y2 = Math.max(originalBox.getMaxY(), boxToInclude.getMaxY());
+        double xSize = x2 - x1;
+        double ySize = y2 - y1;
+        return xSize * ySize;
+    }
+
     private LeafNode<T> chooseSubtree(Node<T> parentNode, DataEntry<T> entryToAdd) {
-        // Descend to leaf
-
+        // Find most suitable leaf node to contain the object
         Node<T> node = parentNode;
-
-        // At every level
-
-        // Find most suitable subtree to contain the object
-        Node<T> bestSubNode = null;
         while (!node.isLeaf()) {
+            // Choose a child node whose boundaries needs least area enlargement to include the new object
+            Node<T> bestChildNode = null;
+            double bestAreaEnlargementNeeded = Double.POSITIVE_INFINITY;
             for (Node<T> childNode : node.getChildNodes()) {
-                // If is better child node than best node
-                bestSubNode = childNode;
+                double areaEnlargementNeeded =  calculateCombinedArea(childNode.getBounds(), entryToAdd.bounds) - childNode.getBounds().getArea();
+                if (bestChildNode == null || areaEnlargementNeeded < bestAreaEnlargementNeeded) {
+                    bestChildNode = childNode;
+                    bestAreaEnlargementNeeded = areaEnlargementNeeded;
+                }
             }
+            if (bestChildNode == null) throw new IllegalStateException("A non-leaf node must have at least two child nodes, but no suitable child node was found to add a node to");
 
             // Descend into the best subnode
-            node = bestSubNode;
+            node = bestChildNode;
         }
 
         return (LeafNode<T>) node;
-
-
-
-        // Set N to be root node
-
-        // If N is leaf, return N
-
-        // Else,
-
-        // Choose an entry in N whose rectangle leeds least area enlargement to include the new object
-        // Resolve ties by choosing the entry with the rectangle of the smallest area
-
-        // Set N to be the chosen entry and repeat
-
     }
 
 
     /**
-     * Node in RStar spatial index.
+     * Base class for nodes in RStar spatial index.
      */
-    private interface Node<T> {
-        MutableBoundingBox getArea();
+    private static abstract class Node<T> {
+        private final Node<T> parent;
+        private final MutableBoundingBox bounds = new MutableBoundingBox();
 
-        boolean isLeaf();
+        protected Node(Node<T> parent) {
+            this.parent = parent;
+        }
 
-        List<Node<T>> getChildNodes();
-        List<DataEntry<T>> getDataEntries();
+        public final Node<T> getParent() {
+            return parent;
+        }
 
+        public final MutableBoundingBox getBounds() {
+            return bounds;
+        }
+
+        protected abstract boolean isLeaf();
+        protected abstract List<Node<T>> getChildNodes();
+        protected abstract List<DataEntry<T>> getDataEntries();
+        protected abstract int getSize();
     }
 
-    private static final class InternalNode<T> implements Node<T> {
-        private final MutableBoundingBox area = new MutableBoundingBox();
+    /**
+     * Non-leaf node.  Contains other nodes.
+     */
+    private static final class InternalNode<T> extends Node<T> {
         private final List<Node<T>> childNodes = new ArrayList<Node<T>>();
 
-        public MutableBoundingBox getArea() {
-            return area;
+        private InternalNode(Node<T> parent) {
+            super(parent);
         }
 
         public List<Node<T>> getChildNodes() {
@@ -183,14 +205,21 @@ public class RStarSpatialIndex<T> extends SpatialIndexBase<T> {
         public List<DataEntry<T>> getDataEntries() {
             return Collections.emptyList();
         }
+
+        @Override
+        public int getSize() {
+            return childNodes.size();
+        }
     }
 
-    private static final class LeafNode<T> implements Node<T> {
-        private final MutableBoundingBox area = new MutableBoundingBox();
+    /**
+     * Leaf node.  Contains stored spatial data entries.
+     */
+    private static final class LeafNode<T> extends Node<T> {
         private final List<DataEntry<T>> dataEntries = new ArrayList<DataEntry<T>>();
 
-        public MutableBoundingBox getArea() {
-            return area;
+        private LeafNode(Node<T> parent) {
+            super(parent);
         }
 
         @Override
@@ -210,15 +239,20 @@ public class RStarSpatialIndex<T> extends SpatialIndexBase<T> {
         public List<DataEntry<T>> getDataEntries() {
             return dataEntries;
         }
+
+        @Override
+        public int getSize() {
+            return dataEntries.size();
+        }
     }
 
     private static final class DataEntry<T> {
         public final T dataObject;
-        public final BoundingBox area;
+        public final BoundingBox bounds;
 
-        private DataEntry(T dataObject, BoundingBox area) {
+        private DataEntry(T dataObject, BoundingBox bounds) {
             this.dataObject = dataObject;
-            this.area = area;
+            this.bounds = bounds;
         }
     }
 

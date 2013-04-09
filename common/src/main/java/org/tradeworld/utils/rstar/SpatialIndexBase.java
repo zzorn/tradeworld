@@ -133,13 +133,13 @@ public abstract class SpatialIndexBase<T> implements SpatialIndex<T> {
     }
 
     @Override
-    public final int getContained(BoundingBox area, Collection<T> resultOut) {
-        if (area == null) throw new IllegalArgumentException("area should not be null");
+    public final int getContained(BoundingBox bounds, Collection<T> resultOut) {
+        if (bounds == null) throw new IllegalArgumentException("area should not be null");
         if (resultOut == null) throw new IllegalArgumentException("resultOut should not be null");
 
         lock.readLock().lock();
         try {
-            return rawGetContained(area, resultOut);
+            return rawGetContained(bounds, resultOut);
         }
         finally {
             lock.readLock().unlock();
@@ -147,13 +147,13 @@ public abstract class SpatialIndexBase<T> implements SpatialIndex<T> {
     }
 
     @Override
-    public final int getIntersecting(BoundingBox area, Collection<T> resultOut) {
-        if (area == null) throw new IllegalArgumentException("area should not be null");
+    public final int getIntersecting(BoundingBox bounds, Collection<T> resultOut) {
+        if (bounds == null) throw new IllegalArgumentException("area should not be null");
         if (resultOut == null) throw new IllegalArgumentException("resultOut should not be null");
 
         lock.readLock().lock();
         try {
-            return rawGetIntersecting(area, resultOut);
+            return rawGetIntersecting(bounds, resultOut);
         }
         finally {
             lock.readLock().unlock();
