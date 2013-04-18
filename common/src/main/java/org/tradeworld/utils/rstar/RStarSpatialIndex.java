@@ -3,10 +3,7 @@ package org.tradeworld.utils.rstar;
 import org.tradeworld.utils.bbox.BoundingBox;
 import org.tradeworld.utils.bbox.MutableBoundingBox;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 /**
  * R*-Tree based spatial index.
@@ -14,35 +11,70 @@ import java.util.List;
 public class RStarSpatialIndex<T> extends SpatialIndexBase<T> {
 
     private final int maxFill = 64;
-    private final int minFill = (int) (maxFill * 0.4);
 
-    private Node<T> rootNode = new LeafNode<T>(parent);
+    private final int minFill = (int) (maxFill * 0.4);
+    private Node<T> rootNode = new Node<T>();
+
+    private static final Comparator<Node> NODE_X_COMPARATOR = new Comparator<Node>() {
+        @Override
+        public int compare(Node o1, Node o2) {
+            double o1Min = o1.getBounds().getMinX();
+            double o2Min = o2.getBounds().getMinX();
+
+            // Sort primarily by min coordinate
+            if (o1Min < o2Min) return -1;
+            else if (o1Min > o2Min) return 1;
+            else {
+                double o1Max = o1.getBounds().getMaxX();
+                double o2Max = o2.getBounds().getMaxX();
+
+                // Secondary by max coordinate
+                if (o1Max < o2Max) return -1;
+                else if (o1Max > o2Max) return 1;
+                else return 0;
+            }
+        }
+    };
+
+    private static final Comparator<Node> NODE_Y_COMPARATOR = new Comparator<Node>() {
+        @Override
+        public int compare(Node o1, Node o2) {
+            double o1Min = o1.getBounds().getMinY();
+            double o2Min = o2.getBounds().getMinY();
+
+            // Sort primarily by min coordinate
+            if (o1Min < o2Min) return -1;
+            else if (o1Min > o2Min) return 1;
+            else {
+                double o1Max = o1.getBounds().getMaxY();
+                double o2Max = o2.getBounds().getMaxY();
+
+                // Secondary by max coordinate
+                if (o1Max < o2Max) return -1;
+                else if (o1Max > o2Max) return 1;
+                else return 0;
+            }
+        }
+    };
 
     @Override
     protected void rawAdd(T object, BoundingBox boundingBox) {
-        // Create data entry for the object
-        DataEntry<T> entry = new DataEntry<T>(object, boundingBox);
+        // Create leaf node for the object
+        Node<T> entry = new Node<T>(object, boundingBox);
 
         // Determine where to add
-        LeafNode<T> nodeToAddObjectTo = chooseSubtree(rootNode, entry);
+        Node<T> nodeToAddObjectTo = chooseSubtree(rootNode, boundingBox);
 
         // Add
-        nodeToAddObjectTo.addDataEntry(entry);
+        nodeToAddObjectTo.addChildNode(entry);
 
         // If the chosen subtree got filled to max capacity, split it
         if (nodeToAddObjectTo.getSize() > maxFill) {
+            nodeToAddObjectTo.split();
             splitNode(nodeToAddObjectTo);
         }
 
         // TODO
-    }
-
-    private void splitNode(LeafNode nodeToSplit) {
-        // Sort nodes by (lower and upper) x and y boundaries  (primary order by upper boundary, secondary by lower).
-
-        // Sum together margin values for all distributions
-
-
     }
 
     @Override
@@ -129,7 +161,7 @@ public class RStarSpatialIndex<T> extends SpatialIndexBase<T> {
         return xSize * ySize;
     }
 
-    private LeafNode<T> chooseSubtree(Node<T> parentNode, DataEntry<T> entryToAdd) {
+    private Node<T> chooseSubtree(Node<T> parentNode, BoundingBox boundsToAdd) {
         // Find most suitable leaf node to contain the object
         Node<T> node = parentNode;
         while (!node.isLeaf()) {
@@ -137,7 +169,7 @@ public class RStarSpatialIndex<T> extends SpatialIndexBase<T> {
             Node<T> bestChildNode = null;
             double bestAreaEnlargementNeeded = Double.POSITIVE_INFINITY;
             for (Node<T> childNode : node.getChildNodes()) {
-                double areaEnlargementNeeded =  calculateCombinedArea(childNode.getBounds(), entryToAdd.bounds) - childNode.getBounds().getArea();
+                double areaEnlargementNeeded =  calculateCombinedArea(childNode.getBounds(), boundsToAdd) - childNode.getBounds().getArea();
                 if (bestChildNode == null || areaEnlargementNeeded < bestAreaEnlargementNeeded) {
                     bestChildNode = childNode;
                     bestAreaEnlargementNeeded = areaEnlargementNeeded;
@@ -149,110 +181,135 @@ public class RStarSpatialIndex<T> extends SpatialIndexBase<T> {
             node = bestChildNode;
         }
 
-        return (LeafNode<T>) node;
+        return (Node<T>) node;
     }
 
 
     /**
-     * Base class for nodes in RStar spatial index.
+     * A node in the RStar spatial index.
      */
-    private static abstract class Node<T> {
-        private final Node<T> parent;
-        private final MutableBoundingBox bounds = new MutableBoundingBox();
+    private static final class Node<T> {
+        private Node<T> parent = null;
+        private final BoundingBox bounds;
+        private final List<Node<T>> childNodes;
+        private final T content;
 
-        protected Node(Node<T> parent) {
-            this.parent = parent;
+        /**
+         * Creates a new non-leaf node.
+         */
+        public Node() {
+            this.bounds = new MutableBoundingBox();
+            this.content = null;
+            this.childNodes = new ArrayList<Node<T>>();
         }
 
-        public final Node<T> getParent() {
+        /**
+         * Creates a new leaf node.
+         */
+        public Node(T content, BoundingBox bounds) {
+            if (content == null) throw new IllegalArgumentException("Content should not be null for a leaf node.");
+            if (bounds == null) throw new IllegalArgumentException("Bounds should not be null for a leaf node.");
+
+            this.bounds = bounds;
+            this.content = content;
+            this.childNodes = null;
+        }
+
+        public Node<T> getParent() {
             return parent;
         }
 
-        public final MutableBoundingBox getBounds() {
+        public T getContent() {
+            return content;
+        }
+
+        public boolean isRoot() {
+            return parent == null;
+        }
+
+        public boolean isLeaf() {
+            return content != null;
+        }
+
+        public BoundingBox getBounds() {
             return bounds;
         }
 
-        protected abstract boolean isLeaf();
-        protected abstract List<Node<T>> getChildNodes();
-        protected abstract List<DataEntry<T>> getDataEntries();
-        protected abstract int getSize();
-    }
-
-    /**
-     * Non-leaf node.  Contains other nodes.
-     */
-    private static final class InternalNode<T> extends Node<T> {
-        private final List<Node<T>> childNodes = new ArrayList<Node<T>>();
-
-        private InternalNode(Node<T> parent) {
-            super(parent);
-        }
-
         public List<Node<T>> getChildNodes() {
-            return childNodes;
+            return childNodes == null ? Collections.<Node<T>>emptyList() : childNodes;
         }
 
         public void addChildNode(Node<T> node) {
+            if (isLeaf()) throw new IllegalArgumentException("Can not add child nodes to a leaf node");
+
+            // Remove from old parent node
+            if (node.getParent() != null) {
+                node.getParent().removeChildNode(node);
+            }
+
+            // Set parent to this
+            node.parent = this;
+
+            // Add to list of child nodes
             childNodes.add(node);
+
+            if (!bounds.contains(node.getBounds())) {
+                // Update bounds
+                bounds.include(node.getBounds());
+            }
         }
 
-        @Override
-        public boolean isLeaf() {
-            return false;
+        public void removeChildNode(Node<T> node) {
+            if (childNodes.remove(node)) {
+                node.parent = null;
+
+                // Update bounds
+                if (childNodes.isEmpty()) {
+                    bounds.clear();
+                }
+                else {
+                    bounds.set(childNodes.get(0));
+                    for (int i = 1; i < childNodes.size(); i++) {
+                        bounds.include(childNodes.get(i).getBounds());
+                    }
+                }
+            }
         }
 
-        @Override
-        public List<DataEntry<T>> getDataEntries() {
-            return Collections.emptyList();
-        }
-
-        @Override
         public int getSize() {
-            return childNodes.size();
-        }
-    }
-
-    /**
-     * Leaf node.  Contains stored spatial data entries.
-     */
-    private static final class LeafNode<T> extends Node<T> {
-        private final List<DataEntry<T>> dataEntries = new ArrayList<DataEntry<T>>();
-
-        private LeafNode(Node<T> parent) {
-            super(parent);
+            return childNodes == null ? 0 : childNodes.size();
         }
 
-        @Override
-        public boolean isLeaf() {
-            return true;
-        }
+        public void split() {
+            if (isLeaf()) throw new IllegalStateException("Can not split a leaf node");
 
-        public void addDataEntry(DataEntry<T> dataEntry) {
-            dataEntries.add(dataEntry);
-        }
+            // Sort nodes by (lower and upper) x and y boundaries  (primary order by upper boundary, secondary by lower).
+            List<Node<T>> childNodesByX = childNodes;
+            List<Node<T>> childNodesByY = new ArrayList<Node<T>>(childNodes);
+            Collections.sort(childNodesByX, NODE_X_COMPARATOR);
+            Collections.sort(childNodesByY, NODE_Y_COMPARATOR);
 
-        @Override
-        public List<Node<T>> getChildNodes() {
-            return Collections.emptyList();
-        }
+            // Sum together margin values for all distributions
+            for (int i = 0; i < childNodesByX.size(); i++) {
+                double marginSumA = 0;
+                double marginSumB = 0;
+                for (int j = 0; j < i; j++) {
+                    marginSumA += childNodesByX.get(j).getBounds().getCircumference();
+                }
+                for (int j = i; j < childNodesByX.size(); j++) {
+                    marginSumB += childNodesByX.get(j).getBounds().getCircumference();
+                }
 
-        public List<DataEntry<T>> getDataEntries() {
-            return dataEntries;
-        }
+                // TODO
+            }
 
-        @Override
-        public int getSize() {
-            return dataEntries.size();
-        }
-    }
 
-    private static final class DataEntry<T> {
-        public final T dataObject;
-        public final BoundingBox bounds;
+            // Determine split axis
 
-        private DataEntry(T dataObject, BoundingBox bounds) {
-            this.dataObject = dataObject;
-            this.bounds = bounds;
+            // Determine index to split along
+
+            // Divide node into two, add back to parent.
+
         }
     }
 

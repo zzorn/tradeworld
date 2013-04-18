@@ -71,6 +71,11 @@ public abstract class BoundingBoxBase implements BoundingBox {
                boundingBox.getMaxY() >= minY;
     }
 
+    @Override
+    public double getCircumference() {
+        return getSizeX() * 2 + getSizeY() * 2;
+    }
+
     protected final void init(double x1, double y1, double x2, double y2) {
         if (x1 <= x2) {
             minX = x1;

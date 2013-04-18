@@ -53,4 +53,14 @@ public final class MutableBoundingBox extends BoundingBoxBase {
             listeners.remove(listener);
         }
     }
+
+    @Override
+    public void include(BoundingBox bounds) {
+        if (!contains(bounds)) {
+            set(Math.min(minX, bounds.getMinX()),
+                Math.min(minY, bounds.getMinY()),
+                Math.max(maxX, bounds.getMaxX()),
+                Math.max(maxY, bounds.getMaxY()));
+        }
+    }
 }

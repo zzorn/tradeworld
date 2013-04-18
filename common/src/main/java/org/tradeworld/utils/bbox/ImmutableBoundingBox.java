@@ -20,6 +20,11 @@ public final class ImmutableBoundingBox extends BoundingBoxBase {
     }
 
     @Override
+    public void include(BoundingBox bounds) {
+        throw new IllegalStateException("ImmutableBoundingBox can not be modified");
+    }
+
+    @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
