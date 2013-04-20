@@ -10,6 +10,8 @@ public abstract class BoundingBoxBase implements BoundingBox {
     protected double maxX;
     protected double maxY;
 
+    protected boolean empty = true;
+
     @Override
     public final double getMinX() {
         return minX;
@@ -28,6 +30,10 @@ public abstract class BoundingBoxBase implements BoundingBox {
     @Override
     public final double getMaxY() {
         return maxY;
+    }
+
+    public final boolean isEmpty() {
+        return empty;
     }
 
     @Override
@@ -57,18 +63,20 @@ public abstract class BoundingBoxBase implements BoundingBox {
 
     @Override
     public final boolean contains(BoundingBox boundingBox) {
-        return boundingBox.getMinX() >= minX &&
-               boundingBox.getMinY() >= minY &&
-               boundingBox.getMaxX() <= maxX &&
-               boundingBox.getMaxY() <= maxY;
+        if (empty) return false;
+        else return boundingBox.getMinX() >= minX &&
+                    boundingBox.getMinY() >= minY &&
+                    boundingBox.getMaxX() <= maxX &&
+                    boundingBox.getMaxY() <= maxY;
     }
 
     @Override
     public boolean intersects(BoundingBox boundingBox) {
-        return boundingBox.getMinX() <= maxX &&
-               boundingBox.getMaxX() >= minX &&
-               boundingBox.getMinY() <= maxY &&
-               boundingBox.getMaxY() >= minY;
+        if (empty) return false;
+        else return boundingBox.getMinX() <= maxX &&
+                    boundingBox.getMaxX() >= minX &&
+                    boundingBox.getMinY() <= maxY &&
+                    boundingBox.getMaxY() >= minY;
     }
 
     @Override
@@ -94,6 +102,8 @@ public abstract class BoundingBoxBase implements BoundingBox {
             minY = y2;
             maxY = y1;
         }
+
+        empty = false;
     }
 
 }

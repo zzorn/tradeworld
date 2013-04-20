@@ -10,9 +10,9 @@ import java.util.*;
  */
 public class RStarSpatialIndex<T> extends SpatialIndexBase<T> {
 
-    private final int maxFill = 64;
+    private static final int maxFill = 64;
+    private static final int minFill = (int) (maxFill * 0.4);
 
-    private final int minFill = (int) (maxFill * 0.4);
     private Node<T> rootNode = new Node<T>();
 
     private static final Comparator<Node> NODE_X_COMPARATOR = new Comparator<Node>() {
@@ -62,34 +62,54 @@ public class RStarSpatialIndex<T> extends SpatialIndexBase<T> {
         // Create leaf node for the object
         Node<T> entry = new Node<T>(object, boundingBox);
 
+        addNode(entry);
+    }
+
+    private void addNode(Node<T> entry) {
         // Determine where to add
-        Node<T> nodeToAddObjectTo = chooseSubtree(rootNode, boundingBox);
+        Node<T> nodeToAddObjectTo = chooseSubtree(rootNode, entry.getBounds());
 
         // Add
         nodeToAddObjectTo.addChildNode(entry);
 
         // If the chosen subtree got filled to max capacity, split it
         if (nodeToAddObjectTo.getSize() > maxFill) {
+            // If we are splitting the root, create a new root and add the old root to it first.
+            if (nodeToAddObjectTo == rootNode) {
+                rootNode = new Node<T>();
+                rootNode.addChildNode(nodeToAddObjectTo);
+            }
+
             nodeToAddObjectTo.split();
-            splitNode(nodeToAddObjectTo);
         }
 
-        // TODO
+        // TODO: Re-insertion optimization thing
     }
 
     @Override
     protected void rawRemove(T object) {
         final BoundingBox boundingBox = getBoundingBox(object);
         if (boundingBox != null) {
-            // Find node with the object
+            // Find node for the object
+            Node<T> node = rootNode.getNodeFor(object, boundingBox);
 
-            // Remove object from node
+            if (node != null) {
+                // Remove node
+                final Node<T> parent = node.getParent();
+                parent.removeChildNode(node);
 
-            // If node has less than min capacity, merge
+                // If parent has less than min capacity, merge
+                if (!parent.isRoot() && parent.getSize() < minFill) {
+                    // Remove parent node
+                    parent.getParent().removeChildNode(parent);
 
+                    // Add all its children to the tree
+                    for (Node<T> childNode : parent.getChildNodes()) {
+                        addNode(childNode);
+                    }
+                }
+            }
         }
-
-        // TODO
     }
 
     @Override
@@ -105,21 +125,15 @@ public class RStarSpatialIndex<T> extends SpatialIndexBase<T> {
     private int getContainedObjectsFromNode(Node<T> node, BoundingBox searchArea, Collection<T> resultOut) {
         int numResults = 0;
 
-        if (searchArea.intersects(node.getBounds())) {
-            if (node.isLeaf()) {
-                // Include contained data objects in result
-                for (DataEntry<T> dataEntry : node.getDataEntries()) {
-                    if (searchArea.contains(dataEntry.bounds)) {
-                        resultOut.add(dataEntry.dataObject);
-                        numResults++;
-                    }
-                }
-            }
-            else {
-                // If non leaf node with overlapping area, check each child node
-                for (Node<T> childNode : node.getChildNodes()) {
-                    numResults += getContainedObjectsFromNode(childNode, searchArea, resultOut);
-                }
+        if (node.isLeaf() && searchArea.contains(node.getBounds())) {
+            // Include data object in result
+            resultOut.add(node.getContent());
+            numResults++;
+        }
+        else if (searchArea.intersects(node.getBounds())) {
+            // If non-leaf node with overlapping area, check each child node
+            for (Node<T> childNode : node.getChildNodes()) {
+                numResults += getContainedObjectsFromNode(childNode, searchArea, resultOut);
             }
         }
 
@@ -131,13 +145,9 @@ public class RStarSpatialIndex<T> extends SpatialIndexBase<T> {
 
         if (searchArea.intersects(node.getBounds())) {
             if (node.isLeaf()) {
-                // Include intersecting data objects in result
-                for (DataEntry<T> dataEntry : node.getDataEntries()) {
-                    if (searchArea.intersects(dataEntry.bounds)) {
-                        resultOut.add(dataEntry.dataObject);
-                        numResults++;
-                    }
-                }
+                // Include intersecting data object in result
+                resultOut.add(node.getContent());
+                numResults++;
             }
             else {
                 // If non leaf node with overlapping area, check each child node
@@ -181,7 +191,7 @@ public class RStarSpatialIndex<T> extends SpatialIndexBase<T> {
             node = bestChildNode;
         }
 
-        return (Node<T>) node;
+        return node;
     }
 
 
@@ -219,6 +229,11 @@ public class RStarSpatialIndex<T> extends SpatialIndexBase<T> {
             return parent;
         }
 
+        public Node<T> getRoot() {
+            if (parent == null) return this;
+            else return parent.getRoot();
+        }
+
         public T getContent() {
             return content;
         }
@@ -242,37 +257,37 @@ public class RStarSpatialIndex<T> extends SpatialIndexBase<T> {
         public void addChildNode(Node<T> node) {
             if (isLeaf()) throw new IllegalArgumentException("Can not add child nodes to a leaf node");
 
-            // Remove from old parent node
-            if (node.getParent() != null) {
-                node.getParent().removeChildNode(node);
-            }
+            // Add node
+            rawAddChildNode(node);
 
+            // Update bounds
+            includeInBounds(node.getBounds());
+        }
+
+        private void includeInBounds(final BoundingBox boundsToInclude) {
+            // Update bounds
+            ((MutableBoundingBox) bounds).include(boundsToInclude);
+
+            // Notify parent as well
+            if (parent != null) parent.includeInBounds(boundsToInclude);
+        }
+
+        private void rawAddChildNode(Node<T> node) {
             // Set parent to this
             node.parent = this;
 
             // Add to list of child nodes
             childNodes.add(node);
-
-            if (!bounds.contains(node.getBounds())) {
-                // Update bounds
-                bounds.include(node.getBounds());
-            }
         }
 
         public void removeChildNode(Node<T> node) {
+            if (isLeaf()) throw new IllegalStateException("Can not remove a child node from a leaf node");
+
             if (childNodes.remove(node)) {
                 node.parent = null;
 
                 // Update bounds
-                if (childNodes.isEmpty()) {
-                    bounds.clear();
-                }
-                else {
-                    bounds.set(childNodes.get(0));
-                    for (int i = 1; i < childNodes.size(); i++) {
-                        bounds.include(childNodes.get(i).getBounds());
-                    }
-                }
+                recalculateBounds(true);
             }
         }
 
@@ -282,6 +297,7 @@ public class RStarSpatialIndex<T> extends SpatialIndexBase<T> {
 
         public void split() {
             if (isLeaf()) throw new IllegalStateException("Can not split a leaf node");
+            if (isRoot()) throw new IllegalStateException("Can not split the root node");
 
             // Sort nodes by (lower and upper) x and y boundaries  (primary order by upper boundary, secondary by lower).
             List<Node<T>> childNodesByX = childNodes;
@@ -289,28 +305,128 @@ public class RStarSpatialIndex<T> extends SpatialIndexBase<T> {
             Collections.sort(childNodesByX, NODE_X_COMPARATOR);
             Collections.sort(childNodesByY, NODE_Y_COMPARATOR);
 
-            // Sum together margin values for all distributions
-            for (int i = 0; i < childNodesByX.size(); i++) {
-                double marginSumA = 0;
-                double marginSumB = 0;
-                for (int j = 0; j < i; j++) {
-                    marginSumA += childNodesByX.get(j).getBounds().getCircumference();
-                }
-                for (int j = i; j < childNodesByX.size(); j++) {
-                    marginSumB += childNodesByX.get(j).getBounds().getCircumference();
-                }
+            // Determine split axis - use the axis with the smallest circumference sum of it's distributions
+            double circumferenceSumX = calculateCircumferenceSum(childNodesByX);
+            double circumferenceSumY = calculateCircumferenceSum(childNodesByY);
+            boolean splitAlongX = circumferenceSumX <= circumferenceSumY;
+            List<Node<T>> sortedChildren;
+            if (splitAlongX) sortedChildren = childNodesByX;
+            else sortedChildren = childNodesByY;
 
-                // TODO
+            // Determine index to split at
+            final int splitIndex = chooseSplitIndex(sortedChildren);
+
+            // Split off new node
+            Node<T> splitNode = new Node<T>();
+            for (int i = splitIndex; i < sortedChildren.size(); i++) {
+                final Node<T> childNode = sortedChildren.get(i);
+
+                // Add to new node
+                splitNode.rawAddChildNode(childNode);
+
+                // Remove from this node
+                childNodes.remove(childNode);
             }
 
+            // Recalculate bounds
+            recalculateBounds(false);
+            splitNode.recalculateBounds(false);
 
-            // Determine split axis
-
-            // Determine index to split along
-
-            // Divide node into two, add back to parent.
-
+            // Add split node to parent
+            parent.addChildNode(splitNode);
         }
+
+        private double calculateCircumferenceSum(List<Node<T>> nodes) {
+            double sum = 0;
+            MutableBoundingBox tempBounds = new MutableBoundingBox();
+
+            // Iterate all distribution of the cells where they are split into two groups
+            for (int splitIndex = minFill; splitIndex < nodes.size() - minFill; splitIndex++) {
+                sum += boundingBoxForNodeSubset(nodes, 0, splitIndex, tempBounds).getCircumference();
+                sum += boundingBoxForNodeSubset(nodes, splitIndex, nodes.size(), tempBounds).getCircumference();
+            }
+
+            return sum;
+        }
+
+        private int chooseSplitIndex(List<Node<T>> nodes) {
+            int bestIndex = 0;
+            double minimumOverlap = Double.POSITIVE_INFINITY;
+            MutableBoundingBox tempBoundsA = new MutableBoundingBox();
+            MutableBoundingBox tempBoundsB = new MutableBoundingBox();
+
+            // Iterate all distributions, find the one with smallest overlap between the distributions
+            for (int splitIndex = minFill; splitIndex < nodes.size() - minFill; splitIndex++) {
+                // Calculate bounds for the two subsets
+                boundingBoxForNodeSubset(nodes, 0, splitIndex, tempBoundsA);
+                boundingBoxForNodeSubset(nodes, splitIndex, nodes.size(), tempBoundsB);
+
+                // Get area of intersection
+                tempBoundsA.setToIntersection(tempBoundsB);
+                final double overlapArea = tempBoundsA.getArea();
+
+                // Find smallest overlap
+                if (overlapArea < minimumOverlap) {
+                    minimumOverlap = overlapArea;
+                    bestIndex = splitIndex;
+                }
+            }
+
+            return bestIndex;
+        }
+
+        private MutableBoundingBox boundingBoxForNodeSubset(List<Node<T>> nodes, final int start, int end, MutableBoundingBox boundsOut) {
+            if (boundsOut == null) boundsOut = new MutableBoundingBox();
+
+            boundsOut.clear();
+            if (start < nodes.size()) {
+                boundsOut.set(nodes.get(start).getBounds());
+                for (int i = start + 1; i < end; i++) {
+                    boundsOut.include(nodes.get(i).getBounds());
+                }
+            }
+            return boundsOut;
+        }
+
+
+        private void recalculateBounds(boolean propagateToParent) {
+            if (isLeaf()) throw new IllegalStateException("Can not clear bounds for leaf node");
+
+            final MutableBoundingBox mutableBounds = (MutableBoundingBox) bounds;
+
+            mutableBounds.clear();
+
+            if (childNodes != null) {
+                for (Node<T> childNode : childNodes) {
+                    mutableBounds.include(childNode.getBounds());
+                }
+            }
+
+            if (propagateToParent && parent != null) {
+                // Recalculate bounds for parent as well.
+                parent.recalculateBounds(true);
+            }
+        }
+
+
+        public Node<T> getNodeFor(T object, BoundingBox boundingBox) {
+            if (bounds.intersects(boundingBox)) {
+                if (isLeaf()) {
+                    if (content == object) {
+                        return this;
+                    }
+                }
+                else {
+                    for (Node<T> childNode : getChildNodes()) {
+                        final Node<T> node = childNode.getNodeFor(object, boundingBox);
+                        if (node != null) return node;
+                    }
+                }
+            }
+
+            return null;
+        }
+
     }
 
 }

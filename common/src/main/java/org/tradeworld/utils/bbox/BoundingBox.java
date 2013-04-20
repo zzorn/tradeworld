@@ -16,6 +16,12 @@ public interface BoundingBox {
     double getSizeY();
     double getArea();
 
+    /**
+     * @return true if the bounding box represents no area, that is, it can not collide with anything or contain anything.
+     * Used for uninitialized / cleared mutable bounding boxes.
+     */
+    boolean isEmpty();
+
     boolean contains(BoundingBox boundingBox);
     boolean intersects(BoundingBox boundingBox);
 
@@ -37,18 +43,7 @@ public interface BoundingBox {
     void removeListener(BoundingBoxListener listener);
 
     /**
-     * Modifies this bounding box to include the specified bounds.
-     * Only supported for mutable bounding boxes.
-     */
-    void include(BoundingBox bounds);
-
-    /**
      * @return the distance around the bounding box, when walking along the edges (so width * 2 + height * 2);
      */
     double getCircumference();
-
-    /**
-     * If bounding box is mutable, sets area to zero and location to origo.
-     */
-    void clear();
 }
