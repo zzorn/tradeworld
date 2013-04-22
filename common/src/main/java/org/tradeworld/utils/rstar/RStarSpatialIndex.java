@@ -10,6 +10,9 @@ import java.util.*;
  */
 public class RStarSpatialIndex<T> extends SpatialIndexBase<T> {
 
+    // TODO: Implement test, comparing this to brute force implementation
+    // TODO: Include graphical visualization in test.
+
     // TODO: Make maxFill and other parameters parametrizable
     private static final int maxFill = 64;
     private static final int minFill = (int) (maxFill * 0.4);
