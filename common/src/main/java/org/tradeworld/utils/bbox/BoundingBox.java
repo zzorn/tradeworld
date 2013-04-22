@@ -46,4 +46,14 @@ public interface BoundingBox {
      * @return the distance around the bounding box, when walking along the edges (so width * 2 + height * 2);
      */
     double getCircumference();
+
+    /**
+     * @return squared distance from the center of this bound to the specified coordinate.
+     */
+    double getSquaredCenterDistanceTo(double x, double y);
+
+    /**
+     * @return distance from the center of this bound to the specified coordinate.
+     */
+    double getCenterDistanceTo(double x, double y);
 }

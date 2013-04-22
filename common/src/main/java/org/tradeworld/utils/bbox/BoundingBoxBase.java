@@ -71,7 +71,7 @@ public abstract class BoundingBoxBase implements BoundingBox {
     }
 
     @Override
-    public boolean intersects(BoundingBox boundingBox) {
+    public final boolean intersects(BoundingBox boundingBox) {
         if (empty) return false;
         else return boundingBox.getMinX() <= maxX &&
                     boundingBox.getMaxX() >= minX &&
@@ -80,8 +80,20 @@ public abstract class BoundingBoxBase implements BoundingBox {
     }
 
     @Override
-    public double getCircumference() {
+    public final double getCircumference() {
         return getSizeX() * 2 + getSizeY() * 2;
+    }
+
+    @Override
+    public final double getSquaredCenterDistanceTo(double x, double y) {
+        double dx = getCenterX() - x;
+        double dy = getCenterY() - y;
+        return dx * dx + dy * dy;
+    }
+
+    @Override
+    public final double getCenterDistanceTo(double x, double y) {
+        return Math.sqrt(getSquaredCenterDistanceTo(x, y));
     }
 
     protected final void init(double x1, double y1, double x2, double y2) {

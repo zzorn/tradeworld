@@ -10,8 +10,10 @@ import java.util.*;
  */
 public class RStarSpatialIndex<T> extends SpatialIndexBase<T> {
 
+    // TODO: Make maxFill and other parameters parametrizable
     private static final int maxFill = 64;
     private static final int minFill = (int) (maxFill * 0.4);
+    private static final double RE_INSERTION_FRACTION = 0.3;
 
     private Node<T> rootNode = new Node<T>();
 
@@ -62,29 +64,78 @@ public class RStarSpatialIndex<T> extends SpatialIndexBase<T> {
         // Create leaf node for the object
         Node<T> entry = new Node<T>(object, boundingBox);
 
-        addNode(entry);
+        addNode(entry, new BitSet());
     }
 
-    private void addNode(Node<T> entry) {
+    private void addNode(Node<T> entry, BitSet overflowsAtDepths) {
         // Determine where to add
         Node<T> nodeToAddObjectTo = chooseSubtree(rootNode, entry.getBounds());
 
         // Add
         nodeToAddObjectTo.addChildNode(entry);
 
-        // If the chosen subtree got filled to max capacity, split it
+        // Check if the chosen subtree got filled to max capacity
         if (nodeToAddObjectTo.getSize() > maxFill) {
-            // If we are splitting the root, create a new root and add the old root to it first.
-            if (nodeToAddObjectTo == rootNode) {
-                rootNode = new Node<T>();
-                rootNode.addChildNode(nodeToAddObjectTo);
-            }
 
-            nodeToAddObjectTo.split();
+            // Handle overflow, first time at each depth level by re-inserting some of the nodes, subsequent times by splitting the node.
+            int depth = nodeToAddObjectTo.getDepth();
+            if (depth > 0 && !overflowsAtDepths.get(depth)) {
+
+                // Mark overflow handled at this depth
+                overflowsAtDepths.set(depth);
+
+                // Remove some nodes from the overflowing node, and add them back to the root.
+                reInsertSomeNodes(nodeToAddObjectTo, overflowsAtDepths);
+            }
+            else {
+                // If we are splitting the root, create a new root and add the old root to it first.
+                if (nodeToAddObjectTo == rootNode) {
+                    rootNode = new Node<T>();
+                    rootNode.addChildNode(nodeToAddObjectTo);
+                }
+
+                // Split node into two
+                nodeToAddObjectTo.split();
+            }
+        }
+    }
+
+    private void reInsertSomeNodes(Node<T> overFilledNode, BitSet overflowsAtDepths) {
+        if (overFilledNode.isLeaf()) throw new IllegalStateException("reInsert not possible for leaf nodes");
+
+        // Sort nodes by distance from child node centers to the center of this node
+        final double centerX = overFilledNode.getBounds().getCenterX();
+        final double centerY = overFilledNode.getBounds().getCenterY();
+        Collections.sort(overFilledNode.childNodes, new Comparator<Node<T>>() {
+            @Override
+            public int compare(Node<T> o1, Node<T> o2) {
+                double d1 = o1.getBounds().getSquaredCenterDistanceTo(centerX, centerY);
+                double d2 = o2.getBounds().getSquaredCenterDistanceTo(centerX, centerY);
+
+                if (d1 < d2) return -1;
+                else if (d1 > d2) return 1;
+                else return 0;
+            }
+        });
+
+        // Remove some percentage of furthest away ones
+        int nodesToRemoveCount = (int) (overFilledNode.getSize() * RE_INSERTION_FRACTION);
+        List<Node<T>> removedNodes = new ArrayList<Node<T>>(nodesToRemoveCount);
+        for (int i = overFilledNode.getSize() - 1; i >= overFilledNode.getSize() - nodesToRemoveCount; i--) {
+            removedNodes.add(overFilledNode.childNodes.get(i));
+            overFilledNode.childNodes.remove(i);
         }
 
-        // TODO: Re-insertion optimization thing
+        // Recalculate node bounds
+        overFilledNode.recalculateBounds(true);
+
+        // Re-insert removed nodes
+        for (int i = removedNodes.size() - 1; i >= 0; i--) {
+            Node<T> removedNode = removedNodes.get(i);
+            addNode(removedNode, overflowsAtDepths);
+        }
     }
+
 
     @Override
     protected void rawRemove(T object) {
@@ -104,8 +155,10 @@ public class RStarSpatialIndex<T> extends SpatialIndexBase<T> {
                     parent.getParent().removeChildNode(parent);
 
                     // Add all its children to the tree
+                    BitSet overflowsAtDepths = new BitSet();
                     for (Node<T> childNode : parent.getChildNodes()) {
-                        addNode(childNode);
+                        //overflowsAtDepths.clear();
+                        addNode(childNode, overflowsAtDepths);
                     }
                 }
             }
@@ -262,6 +315,11 @@ public class RStarSpatialIndex<T> extends SpatialIndexBase<T> {
 
             // Update bounds
             includeInBounds(node.getBounds());
+        }
+
+        public int getDepth() {
+            if (parent == null) return 0;
+            else return parent.getDepth() + 1;
         }
 
         private void includeInBounds(final BoundingBox boundsToInclude) {
