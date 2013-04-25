@@ -12,18 +12,9 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 /**
  * Common functionality of a SpatialIndex.
  */
-public abstract class SpatialIndexBase<T> implements SpatialIndex<T> {
+public abstract class SpatialIndexBase<T extends Bounded> implements SpatialIndex<T> {
 
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
-
-    /** Used for quick contains checking of objects, and access to their bounding boxes. */
-    private final Map<T, BoundingBox> boundingBoxLookup = new HashMap<T, BoundingBox>();
-
-    /**
-     * Lookup map with all objects in the spatial index and their bounding boxes.
-     * Read only.  May be used from raw* methods in subclasses.
-     */
-    protected final Map<T, BoundingBox> readOnlyBoundingBoxLookup = Collections.unmodifiableMap(boundingBoxLookup);
 
     /**
      * Listener that handles moved or re-sized objects.
@@ -37,7 +28,7 @@ public abstract class SpatialIndexBase<T> implements SpatialIndex<T> {
                 try {
                     // Remove and reinsert the object with the changed bounding box.
                     rawRemove(object);
-                    rawAdd(object, boundingBox);
+                    rawAdd(object);
                 }
                 finally {
                     lock.writeLock().unlock();
@@ -47,10 +38,10 @@ public abstract class SpatialIndexBase<T> implements SpatialIndex<T> {
     };
 
     @Override
-    public final void add(T object, BoundingBox boundingBox) {
+    public final void add(T object) {
         lock.writeLock().lock();
         try {
-            handleAdd(object, boundingBox);
+            handleAdd(object);
         }
         finally {
             lock.writeLock().unlock();
@@ -58,11 +49,11 @@ public abstract class SpatialIndexBase<T> implements SpatialIndex<T> {
     }
 
     @Override
-    public final void addAll(Map<T, BoundingBox> objects) {
+    public final void addAll(Collection<T> objects) {
         lock.writeLock().lock();
         try {
-            for (Map.Entry<T, BoundingBox> entry : objects.entrySet()) {
-                handleAdd(entry.getKey(), entry.getValue());
+            for (T object : objects) {
+                handleAdd(object);
             }
         }
         finally {
@@ -71,7 +62,7 @@ public abstract class SpatialIndexBase<T> implements SpatialIndex<T> {
     }
 
     @Override
-    public final BoundingBox remove(T object) {
+    public final boolean remove(T object) {
         lock.writeLock().lock();
         try {
             return handleRemove(object);
@@ -88,7 +79,7 @@ public abstract class SpatialIndexBase<T> implements SpatialIndex<T> {
             int removeCount = 0;
 
             for (T object : objects) {
-                if (handleRemove(object) != null) removeCount++;
+                if (handleRemove(object)) removeCount++;
             }
 
             return removeCount;
@@ -99,22 +90,10 @@ public abstract class SpatialIndexBase<T> implements SpatialIndex<T> {
     }
 
     @Override
-    public void changeBoundingBox(T object, BoundingBox newBoundingBox) {
-        lock.writeLock().lock();
-        try {
-            handleRemove(object);
-            handleAdd(object, newBoundingBox);
-        }
-        finally {
-            lock.writeLock().unlock();
-        }
-    }
-
-    @Override
     public final boolean contains(T object) {
         lock.readLock().lock();
         try {
-            return boundingBoxLookup.containsKey(object);
+            return rawContains(object);
         }
         finally {
             lock.readLock().unlock();
@@ -122,24 +101,13 @@ public abstract class SpatialIndexBase<T> implements SpatialIndex<T> {
     }
 
     @Override
-    public final BoundingBox getBoundingBox(T object) {
-        lock.readLock().lock();
-        try {
-            return boundingBoxLookup.get(object);
-        }
-        finally {
-            lock.readLock().unlock();
-        }
-    }
-
-    @Override
-    public final int getContained(BoundingBox bounds, Collection<T> resultOut) {
-        if (bounds == null) throw new IllegalArgumentException("area should not be null");
+    public final int getContained(BoundingBox searchBounds, Collection<T> resultOut) {
+        if (searchBounds == null) throw new IllegalArgumentException("area should not be null");
         if (resultOut == null) throw new IllegalArgumentException("resultOut should not be null");
 
         lock.readLock().lock();
         try {
-            return rawGetContained(bounds, resultOut);
+            return rawGetContained(searchBounds, resultOut);
         }
         finally {
             lock.readLock().unlock();
@@ -147,13 +115,13 @@ public abstract class SpatialIndexBase<T> implements SpatialIndex<T> {
     }
 
     @Override
-    public final int getIntersecting(BoundingBox bounds, Collection<T> resultOut) {
-        if (bounds == null) throw new IllegalArgumentException("area should not be null");
+    public final int getIntersecting(BoundingBox searchBounds, Collection<T> resultOut) {
+        if (searchBounds == null) throw new IllegalArgumentException("area should not be null");
         if (resultOut == null) throw new IllegalArgumentException("resultOut should not be null");
 
         lock.readLock().lock();
         try {
-            return rawGetIntersecting(bounds, resultOut);
+            return rawGetIntersecting(searchBounds, resultOut);
         }
         finally {
             lock.readLock().unlock();
@@ -163,17 +131,22 @@ public abstract class SpatialIndexBase<T> implements SpatialIndex<T> {
     /**
      * Should take care of adding the object to the spatial index.
      * Locking is already handled in SpatialIndexBase before this is called.
-     * @param object object to add.
-     * @param boundingBox bounding box for the object.
+     * @param object bounded object to add.
      */
-    protected abstract void rawAdd(T object, BoundingBox boundingBox);
+    protected abstract void rawAdd(T object);
 
     /**
      * Should take care of removing the object from the spatial index.
      * Locking is already handled in SpatialIndexBase before this is called.
      * @param object object to remove.
+     * @return true if found and removed, false if not found.
      */
-    protected abstract void rawRemove(T object);
+    protected abstract boolean rawRemove(T object);
+
+    /**
+     * @return true if the object is contained in this spatial index.
+     */
+    protected abstract boolean rawContains(T object);
 
     /**
      * Looks for objects contained in an area.
@@ -193,41 +166,36 @@ public abstract class SpatialIndexBase<T> implements SpatialIndex<T> {
      */
     protected abstract int rawGetIntersecting(BoundingBox area, Collection<T> resultOut);
 
-    private void handleAdd(T object, BoundingBox boundingBox) {
+    private void handleAdd(T object) {
         // Check params
-        checkAddedSpatialObject(object, boundingBox);
-
-        // Update lookup
-        boundingBoxLookup.put(object, boundingBox);
+        checkAddedSpatialObject(object);
 
         // Add to spatial index
-        rawAdd(object, boundingBox);
+        rawAdd(object);
 
         // Listen to changes
-        boundingBox.addListener(boundingBoxListener, object);
+        object.getBounds().addListener(boundingBoxListener, object);
     }
 
-    private BoundingBox handleRemove(T object) {
-        if (object == null) return null;
+    private boolean handleRemove(T object) {
+        if (object == null) return false;
 
-        BoundingBox boundingBox = boundingBoxLookup.get(object);
-        if (boundingBox != null) {
+        // Remove from spatial index
+        if (rawRemove(object)) {
+
             // Stop listening to changes
-            boundingBox.removeListener(boundingBoxListener);
+            object.getBounds().removeListener(boundingBoxListener);
 
-            // Remove from spatial index
-            rawRemove(object);
-
-            // Remove from lookup
-            boundingBoxLookup.remove(object);
+            return true;
         }
-
-        return boundingBox;
+        else {
+            return false;
+        }
     }
 
-    private void checkAddedSpatialObject(T object, BoundingBox boundingBox) {
-        if (boundingBoxLookup.containsKey(object)) throw new IllegalArgumentException("The object '"+object+"' has already been added to the spatial index.  Can not add the same object twice.");
+    private void checkAddedSpatialObject(T object) {
+        // TODO: Maye add contains check if not too slow? if (contains) throw new IllegalArgumentException("The object '"+object+"' has already been added to the spatial index.  Can not add the same object twice.");
         if (object == null) throw new IllegalArgumentException("The object to add is null, null objects are not allowed.");
-        if (boundingBox == null) throw new IllegalArgumentException("The bounding box for the object '"+object+"' is null, null bounding boxes are not allowed.");
+        if (object.getBounds() == null) throw new IllegalArgumentException("The bounds for the object '"+object+"' is null, null bounding boxes are not allowed.");
     }
 }

@@ -37,9 +37,11 @@ public final class MutableBoundingBox extends BoundingBoxBase {
             init(x1, y1, x2, y2);
 
             // Notify listeners
-            for (Map.Entry<BoundingBoxListener, Object> entry : listeners.entrySet()) {
-                BoundingBoxListener listener = entry.getKey();
-                listener.onChanged(this, entry.getValue());
+            if (listeners != null) {
+                for (Map.Entry<BoundingBoxListener, Object> entry : listeners.entrySet()) {
+                    BoundingBoxListener listener = entry.getKey();
+                    listener.onChanged(this, entry.getValue());
+                }
             }
         }
 

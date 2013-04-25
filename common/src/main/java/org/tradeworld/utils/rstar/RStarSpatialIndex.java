@@ -8,13 +8,13 @@ import java.util.*;
 /**
  * R*-Tree based spatial index.
  */
-public class RStarSpatialIndex<T> extends SpatialIndexBase<T> {
+public class RStarSpatialIndex<T extends Bounded> extends SpatialIndexBase<T> {
 
     // TODO: Implement test, comparing this to brute force implementation
     // TODO: Include graphical visualization in test.
 
     // TODO: Make maxFill and other parameters parametrizable
-    private static final int maxFill = 64;
+    private static final int maxFill = 1000;
     private static final int minFill = (int) (maxFill * 0.4);
     private static final double RE_INSERTION_FRACTION = 0.3;
 
@@ -62,10 +62,9 @@ public class RStarSpatialIndex<T> extends SpatialIndexBase<T> {
         }
     };
 
-    @Override
-    protected void rawAdd(T object, BoundingBox boundingBox) {
+    protected void rawAdd(T object) {
         // Create leaf node for the object
-        Node<T> entry = new Node<T>(object, boundingBox);
+        Node<T> entry = new Node<T>(object);
 
         addNode(entry, new BitSet());
     }
@@ -124,7 +123,9 @@ public class RStarSpatialIndex<T> extends SpatialIndexBase<T> {
         // Remove some percentage of furthest away ones
         int nodesToRemoveCount = (int) (overFilledNode.getSize() * RE_INSERTION_FRACTION);
         List<Node<T>> removedNodes = new ArrayList<Node<T>>(nodesToRemoveCount);
-        for (int i = overFilledNode.getSize() - 1; i >= overFilledNode.getSize() - nodesToRemoveCount; i--) {
+        int start = overFilledNode.getSize() - 1;
+        int end = Math.max(0, overFilledNode.getSize() - nodesToRemoveCount);
+        for (int i = start; i >= end; i--) {
             removedNodes.add(overFilledNode.childNodes.get(i));
             overFilledNode.childNodes.remove(i);
         }
@@ -141,11 +142,11 @@ public class RStarSpatialIndex<T> extends SpatialIndexBase<T> {
 
 
     @Override
-    protected void rawRemove(T object) {
-        final BoundingBox boundingBox = getBoundingBox(object);
+    protected boolean rawRemove(T object) {
+        final BoundingBox boundingBox = object.getBounds();
         if (boundingBox != null) {
             // Find node for the object
-            Node<T> node = rootNode.getNodeFor(object, boundingBox);
+            Node<T> node = rootNode.getNodeFor(object);
 
             if (node != null) {
                 // Remove node
@@ -164,8 +165,16 @@ public class RStarSpatialIndex<T> extends SpatialIndexBase<T> {
                         addNode(childNode, overflowsAtDepths);
                     }
                 }
+                return true;
             }
         }
+
+        return false;
+    }
+
+    @Override
+    protected boolean rawContains(T object) {
+        return rootNode.getNodeFor(object) != null;
     }
 
     @Override
@@ -230,31 +239,35 @@ public class RStarSpatialIndex<T> extends SpatialIndexBase<T> {
     private Node<T> chooseSubtree(Node<T> parentNode, BoundingBox boundsToAdd) {
         // Find most suitable leaf node to contain the object
         Node<T> node = parentNode;
-        while (!node.isLeaf()) {
+        while (true) {
             // Choose a child node whose boundaries needs least area enlargement to include the new object
             Node<T> bestChildNode = null;
             double bestAreaEnlargementNeeded = Double.POSITIVE_INFINITY;
             for (Node<T> childNode : node.getChildNodes()) {
-                double areaEnlargementNeeded =  calculateCombinedArea(childNode.getBounds(), boundsToAdd) - childNode.getBounds().getArea();
-                if (bestChildNode == null || areaEnlargementNeeded < bestAreaEnlargementNeeded) {
-                    bestChildNode = childNode;
-                    bestAreaEnlargementNeeded = areaEnlargementNeeded;
+                if (!childNode.isLeaf()) {
+                    double areaEnlargementNeeded =  calculateCombinedArea(childNode.getBounds(), boundsToAdd) - childNode.getBounds().getArea();
+                    if (bestChildNode == null || areaEnlargementNeeded < bestAreaEnlargementNeeded) {
+                        bestChildNode = childNode;
+                        bestAreaEnlargementNeeded = areaEnlargementNeeded;
+                    }
                 }
             }
-            if (bestChildNode == null) throw new IllegalStateException("A non-leaf node must have at least two child nodes, but no suitable child node was found to add a node to");
+
+            if (bestChildNode == null) {
+                // No suitable child nodes found, add to this node
+                return node;
+            }
 
             // Descend into the best subnode
             node = bestChildNode;
         }
-
-        return node;
     }
 
 
     /**
      * A node in the RStar spatial index.
      */
-    private static final class Node<T> {
+    private static final class Node<T extends Bounded> {
         private Node<T> parent = null;
         private final BoundingBox bounds;
         private final List<Node<T>> childNodes;
@@ -272,11 +285,11 @@ public class RStarSpatialIndex<T> extends SpatialIndexBase<T> {
         /**
          * Creates a new leaf node.
          */
-        public Node(T content, BoundingBox bounds) {
+        public Node(T content) {
             if (content == null) throw new IllegalArgumentException("Content should not be null for a leaf node.");
-            if (bounds == null) throw new IllegalArgumentException("Bounds should not be null for a leaf node.");
+            if (content.getBounds() == null) throw new IllegalArgumentException("Bounds should not be null for a leaf node.");
 
-            this.bounds = bounds;
+            this.bounds = content.getBounds();
             this.content = content;
             this.childNodes = null;
         }
@@ -470,8 +483,8 @@ public class RStarSpatialIndex<T> extends SpatialIndexBase<T> {
         }
 
 
-        public Node<T> getNodeFor(T object, BoundingBox boundingBox) {
-            if (bounds.intersects(boundingBox)) {
+        public Node<T> getNodeFor(T object) {
+            if (bounds.intersects(object.getBounds())) {
                 if (isLeaf()) {
                     if (content == object) {
                         return this;
@@ -479,7 +492,7 @@ public class RStarSpatialIndex<T> extends SpatialIndexBase<T> {
                 }
                 else {
                     for (Node<T> childNode : getChildNodes()) {
-                        final Node<T> node = childNode.getNodeFor(object, boundingBox);
+                        final Node<T> node = childNode.getNodeFor(object);
                         if (node != null) return node;
                     }
                 }
